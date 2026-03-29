@@ -557,7 +557,11 @@
       });
 
       // Botón eliminar
-      card.querySelector('.btn-icon.del').addEventListener('click', () => window.deleteTask(task.id));
+      card.querySelector('.btn-icon.del').addEventListener('click', () => {
+  if (confirm('¿Eliminar esta tarea?')) {
+    window.deleteTask(task.id);
+  }
+});
 
       // Cambiar estado
       card.querySelector('.estado-select').addEventListener('change', function() {
