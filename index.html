@@ -1,0 +1,508 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tareas · Gaby</title>
+  <meta name="description" content="Gestión de tareas para Gaby" />
+  <meta name="theme-color" content="#2d6a4f" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f4f1eb;
+      --surface: #ffffff;
+      --border: #e0dbd0;
+      --text: #1a1a1a;
+      --text-muted: #888;
+      --accent: #2d6a4f;
+      --done: #888;
+      --done-light: #f0f0f0;
+      --radius: 12px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.07);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 80px;
+    }
+
+    header {
+      background: var(--accent);
+      color: #fff;
+      padding: 28px 24px 22px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      box-shadow: 0 2px 16px rgba(45,106,79,0.18);
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+    }
+
+    header h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 2rem;
+      letter-spacing: -0.5px;
+      line-height: 1;
+    }
+
+    header p { font-size: 0.8rem; opacity: 0.65; margin-top: 4px; font-weight: 300; }
+
+    .sync-indicator {
+      font-size: 0.72rem;
+      opacity: 0.85;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .sync-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: #52b788;
+      animation: pulse 2s infinite;
+    }
+    .sync-dot.offline { background: #e07a1a; animation: none; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.3; }
+    }
+
+    main { max-width: 680px; margin: 0 auto; padding: 24px 16px; }
+
+    .form-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 20px;
+      margin-bottom: 28px;
+      border: 1px solid var(--border);
+    }
+
+    .form-card h2 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      margin-bottom: 16px;
+      color: var(--accent);
+    }
+
+    .field { margin-bottom: 12px; }
+
+    label {
+      display: block;
+      font-size: 0.75rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+      margin-bottom: 5px;
+    }
+
+    input[type="date"], textarea, select {
+      width: 100%;
+      padding: 10px 13px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      color: var(--text);
+      background: var(--bg);
+      transition: border-color 0.2s;
+      outline: none;
+    }
+
+    textarea { resize: vertical; min-height: 72px; }
+    input:focus, textarea:focus, select:focus { border-color: var(--accent); background: #fff; }
+
+    .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .btn-add {
+      width: 100%;
+      padding: 11px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.9rem;
+      font-weight: 500;
+      cursor: pointer;
+      margin-top: 4px;
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-add:hover { background: #23543e; }
+    .btn-add:active { transform: scale(0.98); }
+    .btn-add:disabled { opacity: 0.6; cursor: not-allowed; }
+
+    .section-title {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.1rem;
+      color: var(--text);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .count-badge {
+      background: var(--accent);
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.7rem;
+      font-weight: 500;
+      padding: 2px 8px;
+      border-radius: 99px;
+    }
+
+    .task-card {
+      background: var(--surface);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 16px;
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+      animation: slideIn 0.25s ease;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(-6px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+
+    .task-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+
+    .task-desc { font-size: 0.92rem; line-height: 1.5; flex: 1; }
+    .task-desc.done-text { text-decoration: line-through; color: var(--text-muted); }
+
+    .task-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+
+    .task-date { font-size: 0.72rem; color: var(--text-muted); font-weight: 300; }
+
+    .estado-select {
+      font-size: 0.72rem;
+      font-weight: 500;
+      padding: 4px 8px;
+      border-radius: 6px;
+      border: 1.5px solid;
+      cursor: pointer;
+      background: transparent;
+      font-family: 'DM Sans', sans-serif;
+      appearance: none;
+      -webkit-appearance: none;
+      padding-right: 22px;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%23888'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 6px center;
+    }
+
+    .estado-PENDIENTE  { color: #c0392b; border-color: #c0392b; }
+    .estado-EN_CURSO   { color: #e07a1a; border-color: #e07a1a; }
+    .estado-FINALIZADO { color: var(--done); border-color: var(--done); }
+
+    .btn-del {
+      background: none; border: none; cursor: pointer;
+      color: #ccc; font-size: 1rem; line-height: 1;
+      padding: 2px 4px; border-radius: 4px; transition: color 0.2s;
+    }
+    .btn-del:hover { color: #c0392b; }
+
+    .section-done { margin-top: 36px; }
+    .section-done .section-title { color: var(--text-muted); }
+    .section-done .count-badge { background: var(--done); }
+
+    .task-card.done-card {
+      opacity: 0.65;
+      background: var(--done-light);
+      border-color: #ddd;
+      box-shadow: none;
+    }
+
+    .empty { text-align: center; padding: 32px 16px; color: var(--text-muted); font-size: 0.85rem; }
+
+    #toast {
+      position: fixed;
+      bottom: 24px; left: 50%;
+      transform: translateX(-50%) translateY(20px);
+      background: #1a1a1a; color: #fff;
+      padding: 10px 20px; border-radius: 8px;
+      font-size: 0.82rem; opacity: 0;
+      transition: opacity 0.3s, transform 0.3s;
+      pointer-events: none; z-index: 200;
+    }
+    #toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+    #install-banner {
+      display: none;
+      position: fixed; bottom: 16px; left: 50%;
+      transform: translateX(-50%);
+      background: var(--accent); color: #fff;
+      padding: 12px 20px; border-radius: 10px;
+      font-size: 0.85rem;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+      z-index: 100; align-items: center; gap: 12px;
+    }
+    #install-banner button {
+      background: #fff; color: var(--accent); border: none;
+      border-radius: 6px; padding: 6px 12px; font-weight: 500;
+      cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 0.8rem;
+    }
+    #dismiss-install {
+      background: none !important; color: rgba(255,255,255,0.6) !important;
+      padding: 4px !important; font-size: 1rem !important;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Tareas</h1>
+    <p>Panel de Gaby</p>
+  </div>
+  <div class="sync-indicator">
+    <div class="sync-dot" id="sync-dot"></div>
+    <span id="sync-text">Conectando…</span>
+  </div>
+</header>
+
+<main>
+  <div class="form-card">
+    <h2>Nueva tarea</h2>
+    <div class="field">
+      <label for="desc">Descripción</label>
+      <textarea id="desc" placeholder="¿Qué hay que hacer?"></textarea>
+    </div>
+    <div class="form-row">
+      <div class="field">
+        <label for="fecha">Fecha</label>
+        <input type="date" id="fecha" />
+      </div>
+      <div class="field">
+        <label for="estado">Estado</label>
+        <select id="estado">
+          <option value="PENDIENTE">Pendiente</option>
+          <option value="EN_CURSO">En curso</option>
+          <option value="FINALIZADO">Finalizado</option>
+        </select>
+      </div>
+    </div>
+    <button class="btn-add" id="btn-add" onclick="addTask()">+ Añadir tarea</button>
+  </div>
+
+  <div class="section-title">
+    Activas <span class="count-badge" id="count-active">0</span>
+  </div>
+  <div id="list-active">
+    <div class="empty" id="empty-active">Cargando…</div>
+  </div>
+
+  <div class="section-done">
+    <div class="section-title">
+      Finalizadas <span class="count-badge" id="count-done">0</span>
+    </div>
+    <div id="list-done">
+      <div class="empty" id="empty-done">Sin tareas finalizadas</div>
+    </div>
+  </div>
+</main>
+
+<div id="toast"></div>
+
+<div id="install-banner">
+  📲 Instala esta app en tu ordenador
+  <button id="btn-install">Instalar</button>
+  <button id="dismiss-install">✕</button>
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+  import {
+    getFirestore, collection, addDoc, deleteDoc,
+    updateDoc, doc, onSnapshot, serverTimestamp,
+    query, orderBy
+  } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyCwYnfBOCC4KEyJyHlo030ETzgbPBTvSeE",
+    authDomain: "tareas-gaby.firebaseapp.com",
+    projectId: "tareas-gaby",
+    storageBucket: "tareas-gaby.firebasestorage.app",
+    messagingSenderId: "397307922878",
+    appId: "1:397307922878:web:e49a9b69ca7716474291ef"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db  = getFirestore(app);
+  const col = collection(db, "tareas");
+
+  // Fecha hoy por defecto
+  document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
+
+  // Toast
+  function toast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2500);
+  }
+
+  // Añadir tarea
+  window.addTask = async function() {
+    const desc   = document.getElementById('desc').value.trim();
+    const fecha  = document.getElementById('fecha').value;
+    const estado = document.getElementById('estado').value;
+    if (!desc) { document.getElementById('desc').focus(); return; }
+
+    const btn = document.getElementById('btn-add');
+    btn.disabled = true;
+    btn.textContent = 'Guardando…';
+
+    try {
+      await addDoc(col, { desc, fecha, estado, creadoEn: serverTimestamp() });
+      document.getElementById('desc').value = '';
+      document.getElementById('estado').value = 'PENDIENTE';
+      document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
+      toast('Tarea añadida ✓');
+    } catch(e) {
+      toast('Error al guardar. Comprueba la conexión.');
+      console.error(e);
+    }
+
+    btn.disabled = false;
+    btn.textContent = '+ Añadir tarea';
+  };
+
+  // Cambiar estado
+  window.changeEstado = async function(id, val) {
+    try {
+      await updateDoc(doc(db, "tareas", id), { estado: val });
+    } catch(e) {
+      toast('Error al actualizar.');
+    }
+  };
+
+  // Eliminar
+  window.deleteTask = async function(id) {
+    try {
+      await deleteDoc(doc(db, "tareas", id));
+      toast('Tarea eliminada');
+    } catch(e) {
+      toast('Error al eliminar.');
+    }
+  };
+
+  // Escuchar cambios en tiempo real
+  const q = query(col, orderBy("creadoEn", "desc"));
+
+  onSnapshot(q,
+    (snapshot) => {
+      document.getElementById('sync-dot').className = 'sync-dot';
+      document.getElementById('sync-text').textContent = 'En línea';
+      const tasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      render(tasks);
+    },
+    (err) => {
+      document.getElementById('sync-dot').className = 'sync-dot offline';
+      document.getElementById('sync-text').textContent = 'Sin conexión';
+      console.error(err);
+    }
+  );
+
+  // Render
+  function render(tasks) {
+    const active = tasks.filter(t => t.estado !== 'FINALIZADO');
+    const done   = tasks.filter(t => t.estado === 'FINALIZADO');
+    document.getElementById('count-active').textContent = active.length;
+    document.getElementById('count-done').textContent   = done.length;
+    renderList('list-active', 'empty-active', active, false);
+    renderList('list-done',   'empty-done',   done,   true);
+  }
+
+  function renderList(containerId, emptyId, list, isDone) {
+    const container = document.getElementById(containerId);
+    const emptyEl   = document.getElementById(emptyId);
+    [...container.querySelectorAll('.task-card')].forEach(el => el.remove());
+
+    if (list.length === 0) {
+      emptyEl.style.display = 'block';
+      emptyEl.textContent = isDone ? 'Sin tareas finalizadas' : 'No hay tareas activas';
+      return;
+    }
+    emptyEl.style.display = 'none';
+
+    list.forEach(task => {
+      const card = document.createElement('div');
+      card.className = 'task-card' + (isDone ? ' done-card' : '');
+
+      const fechaFmt = task.fecha
+        ? new Date(task.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })
+        : '—';
+
+      card.innerHTML = `
+        <div class="task-header">
+          <span class="task-desc ${isDone ? 'done-text' : ''}">${escHtml(task.desc)}</span>
+          <button class="btn-del" data-id="${task.id}" title="Eliminar">✕</button>
+        </div>
+        <div class="task-meta">
+          <span class="task-date">📅 ${fechaFmt}</span>
+          <select class="estado-select estado-${task.estado}" data-id="${task.id}">
+            <option value="PENDIENTE"  ${task.estado==='PENDIENTE'  ? 'selected':''}>Pendiente</option>
+            <option value="EN_CURSO"   ${task.estado==='EN_CURSO'   ? 'selected':''}>En curso</option>
+            <option value="FINALIZADO" ${task.estado==='FINALIZADO' ? 'selected':''}>Finalizado</option>
+          </select>
+        </div>
+      `;
+
+      card.querySelector('.btn-del').addEventListener('click', () => window.deleteTask(task.id));
+      card.querySelector('.estado-select').addEventListener('change', function() {
+        this.className = 'estado-select estado-' + this.value;
+        window.changeEstado(task.id, this.value);
+      });
+
+      container.appendChild(card);
+    });
+  }
+
+  function escHtml(str) {
+    return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  document.getElementById('desc').addEventListener('keydown', e => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) window.addTask();
+  });
+
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js').catch(() => {});
+  }
+
+  let deferredPrompt;
+  window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('install-banner').style.display = 'flex';
+  });
+  document.getElementById('btn-install').addEventListener('click', () => {
+    if (deferredPrompt) {
+      deferredPrompt.prompt();
+      deferredPrompt.userChoice.then(() => {
+        deferredPrompt = null;
+        document.getElementById('install-banner').style.display = 'none';
+      });
+    }
+  });
+  document.getElementById('dismiss-install').addEventListener('click', () => {
+    document.getElementById('install-banner').style.display = 'none';
+  });
+</script>
+</body>
+</html>
