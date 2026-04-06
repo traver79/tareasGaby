@@ -164,6 +164,37 @@
       border-radius: 99px;
     }
 
+    .estado-filtros {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin-bottom: 12px;
+    }
+
+    .btn-estado {
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text);
+      border-radius: 999px;
+      padding: 8px 12px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.84rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      transition: border-color 0.2s, transform 0.1s, background 0.2s, color 0.2s;
+    }
+    .btn-estado:hover { border-color: #b7b1a6; }
+    .btn-estado:active { transform: scale(0.98); }
+    .btn-estado.activo {
+      border-color: var(--accent);
+      background: var(--accent);
+      color: #fff;
+    }
+
     /* TARJETA */
     .task-card {
       background: var(--surface);
@@ -216,6 +247,7 @@
 
     .estado-PENDIENTE  { color: #c0392b; border-color: #c0392b; }
     .estado-EN_CURSO   { color: #e07a1a; border-color: #e07a1a; }
+    .estado-CON_DUDAS  { color: #5a3ec8; border-color: #5a3ec8; }
     .estado-FINALIZADO { color: var(--done); border-color: var(--done); }
 
     /* MODO EDICIÓN dentro de la tarjeta */
@@ -282,35 +314,6 @@
       transition: border-color 0.2s;
     }
     .btn-cancel:hover { border-color: #aaa; color: var(--text); }
-
-    /* FINALIZADAS */
-    .section-done { margin-top: 36px; }
-    .section-done .section-title { color: var(--text-muted); }
-    .section-done .count-badge { background: var(--done); }
-    .section-done .section-title { justify-content: space-between; }
-
-    .done-title-wrap {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-    }
-
-    .btn-toggle-done {
-      border: 1.5px solid var(--border);
-      background: #fff;
-      color: var(--text-muted);
-      font-family: 'DM Sans', sans-serif;
-      font-size: 0.74rem;
-      font-weight: 500;
-      border-radius: 999px;
-      padding: 5px 10px;
-      cursor: pointer;
-      transition: border-color 0.2s, color 0.2s;
-    }
-    .btn-toggle-done:hover {
-      border-color: #b7b1a6;
-      color: var(--text);
-    }
 
     .task-card.done-card {
       opacity: 0.65;
@@ -384,6 +387,7 @@
         <select id="estado">
           <option value="PENDIENTE">Pendiente</option>
           <option value="EN_CURSO">En curso</option>
+          <option value="CON_DUDAS">Con dudas</option>
           <option value="FINALIZADO">Finalizado</option>
         </select>
       </div>
@@ -391,23 +395,22 @@
     <button class="btn-add" id="btn-add" onclick="addTask()">+ Añadir tarea</button>
   </div>
 
-  <div class="section-title">
-    Activas <span class="count-badge" id="count-active">0</span>
+  <div class="estado-filtros" id="estado-filtros">
+    <button type="button" class="btn-estado activo" data-estado="PENDIENTE">
+      Pendiente <span class="count-badge" id="count-PENDIENTE">0</span>
+    </button>
+    <button type="button" class="btn-estado" data-estado="EN_CURSO">
+      En curso <span class="count-badge" id="count-EN_CURSO">0</span>
+    </button>
+    <button type="button" class="btn-estado" data-estado="CON_DUDAS">
+      Con dudas <span class="count-badge" id="count-CON_DUDAS">0</span>
+    </button>
+    <button type="button" class="btn-estado" data-estado="FINALIZADO">
+      Finalizado <span class="count-badge" id="count-FINALIZADO">0</span>
+    </button>
   </div>
   <div id="list-active">
     <div class="empty" id="empty-active">Cargando…</div>
-  </div>
-
-  <div class="section-done">
-    <div class="section-title">
-      <div class="done-title-wrap">
-        Finalizadas <span class="count-badge" id="count-done">0</span>
-      </div>
-      <button class="btn-toggle-done" id="btn-toggle-done" type="button">Ver completadas</button>
-    </div>
-    <div id="list-done">
-      <div class="empty" id="empty-done">Sin tareas finalizadas</div>
-    </div>
   </div>
 </main>
 
@@ -439,7 +442,14 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
   const col = collection(db, "tareas");
-  let showDone = false;
+  const ESTADOS = [
+    { value: 'PENDIENTE', label: 'Pendiente' },
+    { value: 'EN_CURSO', label: 'En curso' },
+    { value: 'CON_DUDAS', label: 'Con dudas' },
+    { value: 'FINALIZADO', label: 'Finalizado' }
+  ];
+  let estadoFiltroSeleccionado = 'PENDIENTE';
+  let tareasActuales = [];
 
   document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
 
@@ -511,6 +521,7 @@
       document.getElementById('sync-dot').className = 'sync-dot';
       document.getElementById('sync-text').textContent = 'En línea';
       const tasks = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+      tareasActuales = tasks;
       render(tasks);
     },
     (err) => {
@@ -522,30 +533,35 @@
 
   // RENDER
   function render(tasks) {
-    const active = tasks.filter(t => t.estado !== 'FINALIZADO');
-    const done   = tasks.filter(t => t.estado === 'FINALIZADO');
-    document.getElementById('count-active').textContent = active.length;
-    document.getElementById('count-done').textContent   = done.length;
-    syncDoneVisibility();
-    renderList('list-active', 'empty-active', active, false);
-    renderList('list-done',   'empty-done',   done,   true);
+    const conteos = ESTADOS.reduce((acc, estado) => {
+      acc[estado.value] = tasks.filter(t => t.estado === estado.value).length;
+      return acc;
+    }, {});
+
+    ESTADOS.forEach(estado => {
+      document.getElementById(`count-${estado.value}`).textContent = conteos[estado.value];
+    });
+
+    const filtradas = tasks.filter(t => t.estado === estadoFiltroSeleccionado);
+    renderList('list-active', 'empty-active', filtradas, estadoFiltroSeleccionado);
   }
 
-  function renderList(containerId, emptyId, list, isDone) {
+  function renderList(containerId, emptyId, list, estadoSeleccionado) {
     const container = document.getElementById(containerId);
     const emptyEl   = document.getElementById(emptyId);
     [...container.querySelectorAll('.task-card')].forEach(el => el.remove());
 
     if (list.length === 0) {
       emptyEl.style.display = 'block';
-      emptyEl.textContent = isDone ? 'Sin tareas finalizadas' : 'No hay tareas activas';
+      const estado = ESTADOS.find(e => e.value === estadoSeleccionado);
+      emptyEl.textContent = `No hay tareas en estado "${estado?.label || estadoSeleccionado}"`;
       return;
     }
     emptyEl.style.display = 'none';
 
     list.forEach(task => {
       const card = document.createElement('div');
-      card.className = 'task-card' + (isDone ? ' done-card' : '');
+      card.className = 'task-card' + (task.estado === 'FINALIZADO' ? ' done-card' : '');
 
       const fechaFmt = task.fecha
         ? new Date(task.fecha + 'T12:00:00').toLocaleDateString('es-ES', { day:'2-digit', month:'short', year:'numeric' })
@@ -553,7 +569,7 @@
 
       card.innerHTML = `
         <div class="task-header">
-          <span class="task-desc ${isDone ? 'done-text' : ''}">${escHtml(task.desc)}</span>
+          <span class="task-desc ${task.estado === 'FINALIZADO' ? 'done-text' : ''}">${escHtml(task.desc)}</span>
           <div class="task-actions">
             <button class="btn-icon edit" title="Editar">✏️</button>
             <button class="btn-icon del" title="Eliminar">✕</button>
@@ -564,6 +580,7 @@
           <select class="estado-select estado-${task.estado}">
             <option value="PENDIENTE"  ${task.estado==='PENDIENTE'  ? 'selected':''}>Pendiente</option>
             <option value="EN_CURSO"   ${task.estado==='EN_CURSO'   ? 'selected':''}>En curso</option>
+            <option value="CON_DUDAS"  ${task.estado==='CON_DUDAS'  ? 'selected':''}>Con dudas</option>
             <option value="FINALIZADO" ${task.estado==='FINALIZADO' ? 'selected':''}>Finalizado</option>
           </select>
         </div>
@@ -618,19 +635,15 @@
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) window.addTask();
   });
 
-  function syncDoneVisibility() {
-    const listDone = document.getElementById('list-done');
-    const toggleBtn = document.getElementById('btn-toggle-done');
-    listDone.style.display = showDone ? 'block' : 'none';
-    toggleBtn.textContent = showDone ? 'Ocultar completadas' : 'Ver completadas';
-  }
-
-  document.getElementById('btn-toggle-done').addEventListener('click', () => {
-    showDone = !showDone;
-    syncDoneVisibility();
+  document.getElementById('estado-filtros').addEventListener('click', (e) => {
+    const button = e.target.closest('.btn-estado');
+    if (!button) return;
+    estadoFiltroSeleccionado = button.dataset.estado;
+    document.querySelectorAll('.btn-estado').forEach(btn => {
+      btn.classList.toggle('activo', btn === button);
+    });
+    render(tareasActuales);
   });
-
-  syncDoneVisibility();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
