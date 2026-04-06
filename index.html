@@ -164,6 +164,7 @@
       border-radius: 99px;
     }
 
+    /* TARJETA */
     .task-card {
       background: var(--surface);
       border-radius: var(--radius);
@@ -180,12 +181,20 @@
     }
 
     .task-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
-
     .task-desc { font-size: 0.92rem; line-height: 1.5; flex: 1; }
     .task-desc.done-text { text-decoration: line-through; color: var(--text-muted); }
 
-    .task-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
+    .task-actions { display: flex; gap: 4px; flex-shrink: 0; }
 
+    .btn-icon {
+      background: none; border: none; cursor: pointer;
+      color: #ccc; font-size: 0.95rem; line-height: 1;
+      padding: 3px 5px; border-radius: 4px; transition: color 0.2s;
+    }
+    .btn-icon.edit:hover  { color: var(--accent); }
+    .btn-icon.del:hover   { color: #c0392b; }
+
+    .task-meta { display: flex; align-items: center; gap: 10px; margin-top: 10px; flex-wrap: wrap; }
     .task-date { font-size: 0.72rem; color: var(--text-muted); font-weight: 300; }
 
     .estado-select {
@@ -209,13 +218,72 @@
     .estado-EN_CURSO   { color: #e07a1a; border-color: #e07a1a; }
     .estado-FINALIZADO { color: var(--done); border-color: var(--done); }
 
-    .btn-del {
-      background: none; border: none; cursor: pointer;
-      color: #ccc; font-size: 1rem; line-height: 1;
-      padding: 2px 4px; border-radius: 4px; transition: color 0.2s;
-    }
-    .btn-del:hover { color: #c0392b; }
+    /* MODO EDICIÓN dentro de la tarjeta */
+    .edit-form { display: none; margin-top: 12px; border-top: 1px solid var(--border); padding-top: 12px; }
+    .edit-form.active { display: block; }
 
+    .edit-form textarea {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      color: var(--text);
+      background: var(--bg);
+      resize: vertical;
+      min-height: 60px;
+      outline: none;
+      margin-bottom: 8px;
+    }
+    .edit-form textarea:focus { border-color: var(--accent); background: #fff; }
+
+    .edit-form input[type="date"] {
+      width: 100%;
+      padding: 8px 10px;
+      border: 1.5px solid var(--border);
+      border-radius: 8px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.88rem;
+      color: var(--text);
+      background: var(--bg);
+      outline: none;
+      margin-bottom: 8px;
+    }
+    .edit-form input[type="date"]:focus { border-color: var(--accent); background: #fff; }
+
+    .edit-btns { display: flex; gap: 8px; }
+
+    .btn-save {
+      flex: 1;
+      padding: 8px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      border-radius: 7px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.83rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn-save:hover { background: #23543e; }
+
+    .btn-cancel {
+      flex: 1;
+      padding: 8px;
+      background: none;
+      color: var(--text-muted);
+      border: 1.5px solid var(--border);
+      border-radius: 7px;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.83rem;
+      cursor: pointer;
+      transition: border-color 0.2s;
+    }
+    .btn-cancel:hover { border-color: #aaa; color: var(--text); }
+
+    /* FINALIZADAS */
     .section-done { margin-top: 36px; }
     .section-done .section-title { color: var(--text-muted); }
     .section-done .count-badge { background: var(--done); }
@@ -345,10 +413,8 @@
   const db  = getFirestore(app);
   const col = collection(db, "tareas");
 
-  // Fecha hoy por defecto
   document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
 
-  // Toast
   function toast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg;
@@ -356,7 +422,7 @@
     setTimeout(() => t.classList.remove('show'), 2500);
   }
 
-  // Añadir tarea
+  // AÑADIR
   window.addTask = async function() {
     const desc   = document.getElementById('desc').value.trim();
     const fecha  = document.getElementById('fecha').value;
@@ -374,7 +440,7 @@
       document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
       toast('Tarea añadida ✓');
     } catch(e) {
-      toast('Error al guardar. Comprueba la conexión.');
+      toast('Error al guardar.');
       console.error(e);
     }
 
@@ -382,26 +448,34 @@
     btn.textContent = '+ Añadir tarea';
   };
 
-  // Cambiar estado
+  // CAMBIAR ESTADO
   window.changeEstado = async function(id, val) {
     try {
       await updateDoc(doc(db, "tareas", id), { estado: val });
-    } catch(e) {
-      toast('Error al actualizar.');
-    }
+    } catch(e) { toast('Error al actualizar.'); }
   };
 
-  // Eliminar
+  // ELIMINAR
   window.deleteTask = async function(id) {
     try {
       await deleteDoc(doc(db, "tareas", id));
       toast('Tarea eliminada');
-    } catch(e) {
-      toast('Error al eliminar.');
-    }
+    } catch(e) { toast('Error al eliminar.'); }
   };
 
-  // Escuchar cambios en tiempo real
+  // GUARDAR EDICIÓN
+  window.saveEdit = async function(id, card) {
+    const newDesc  = card.querySelector('.edit-desc').value.trim();
+    const newFecha = card.querySelector('.edit-fecha').value;
+    if (!newDesc) { card.querySelector('.edit-desc').focus(); return; }
+
+    try {
+      await updateDoc(doc(db, "tareas", id), { desc: newDesc, fecha: newFecha });
+      toast('Tarea actualizada ✓');
+    } catch(e) { toast('Error al guardar.'); }
+  };
+
+  // TIEMPO REAL
   const q = query(col, orderBy("creadoEn", "desc"));
 
   onSnapshot(q,
@@ -418,7 +492,7 @@
     }
   );
 
-  // Render
+  // RENDER
   function render(tasks) {
     const active = tasks.filter(t => t.estado !== 'FINALIZADO');
     const done   = tasks.filter(t => t.estado === 'FINALIZADO');
@@ -451,22 +525,56 @@
       card.innerHTML = `
         <div class="task-header">
           <span class="task-desc ${isDone ? 'done-text' : ''}">${escHtml(task.desc)}</span>
-          <button class="btn-del" data-id="${task.id}" title="Eliminar">✕</button>
+          <div class="task-actions">
+            <button class="btn-icon edit" title="Editar">✏️</button>
+            <button class="btn-icon del" title="Eliminar">✕</button>
+          </div>
         </div>
         <div class="task-meta">
           <span class="task-date">📅 ${fechaFmt}</span>
-          <select class="estado-select estado-${task.estado}" data-id="${task.id}">
+          <select class="estado-select estado-${task.estado}">
             <option value="PENDIENTE"  ${task.estado==='PENDIENTE'  ? 'selected':''}>Pendiente</option>
             <option value="EN_CURSO"   ${task.estado==='EN_CURSO'   ? 'selected':''}>En curso</option>
             <option value="FINALIZADO" ${task.estado==='FINALIZADO' ? 'selected':''}>Finalizado</option>
           </select>
         </div>
+        <div class="edit-form">
+          <textarea class="edit-desc">${escHtml(task.desc)}</textarea>
+          <input type="date" class="edit-fecha" value="${task.fecha || ''}" />
+          <div class="edit-btns">
+            <button class="btn-save">Guardar</button>
+            <button class="btn-cancel">Cancelar</button>
+          </div>
+        </div>
       `;
 
-      card.querySelector('.btn-del').addEventListener('click', () => window.deleteTask(task.id));
+      // Botón editar — muestra/oculta el formulario de edición
+      card.querySelector('.btn-icon.edit').addEventListener('click', () => {
+        const editForm = card.querySelector('.edit-form');
+        const isOpen = editForm.classList.contains('active');
+        editForm.classList.toggle('active', !isOpen);
+        if (!isOpen) card.querySelector('.edit-desc').focus();
+      });
+
+      // Botón eliminar
+      card.querySelector('.btn-icon.del').addEventListener('click', () => {
+  if (confirm('¿Eliminar esta tarea?')) {
+    window.deleteTask(task.id);
+  }
+});
+
+      // Cambiar estado
       card.querySelector('.estado-select').addEventListener('change', function() {
         this.className = 'estado-select estado-' + this.value;
         window.changeEstado(task.id, this.value);
+      });
+
+      // Guardar edición
+      card.querySelector('.btn-save').addEventListener('click', () => window.saveEdit(task.id, card));
+
+      // Cancelar edición
+      card.querySelector('.btn-cancel').addEventListener('click', () => {
+        card.querySelector('.edit-form').classList.remove('active');
       });
 
       container.appendChild(card);
