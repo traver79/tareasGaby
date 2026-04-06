@@ -287,6 +287,30 @@
     .section-done { margin-top: 36px; }
     .section-done .section-title { color: var(--text-muted); }
     .section-done .count-badge { background: var(--done); }
+    .section-done .section-title { justify-content: space-between; }
+
+    .done-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .btn-toggle-done {
+      border: 1.5px solid var(--border);
+      background: #fff;
+      color: var(--text-muted);
+      font-family: 'DM Sans', sans-serif;
+      font-size: 0.74rem;
+      font-weight: 500;
+      border-radius: 999px;
+      padding: 5px 10px;
+      cursor: pointer;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-toggle-done:hover {
+      border-color: #b7b1a6;
+      color: var(--text);
+    }
 
     .task-card.done-card {
       opacity: 0.65;
@@ -376,7 +400,10 @@
 
   <div class="section-done">
     <div class="section-title">
-      Finalizadas <span class="count-badge" id="count-done">0</span>
+      <div class="done-title-wrap">
+        Finalizadas <span class="count-badge" id="count-done">0</span>
+      </div>
+      <button class="btn-toggle-done" id="btn-toggle-done" type="button">Ver completadas</button>
     </div>
     <div id="list-done">
       <div class="empty" id="empty-done">Sin tareas finalizadas</div>
@@ -412,6 +439,7 @@
   const app = initializeApp(firebaseConfig);
   const db  = getFirestore(app);
   const col = collection(db, "tareas");
+  let showDone = false;
 
   document.getElementById('fecha').value = new Date().toISOString().slice(0,10);
 
@@ -498,6 +526,7 @@
     const done   = tasks.filter(t => t.estado === 'FINALIZADO');
     document.getElementById('count-active').textContent = active.length;
     document.getElementById('count-done').textContent   = done.length;
+    syncDoneVisibility();
     renderList('list-active', 'empty-active', active, false);
     renderList('list-done',   'empty-done',   done,   true);
   }
@@ -588,6 +617,20 @@
   document.getElementById('desc').addEventListener('keydown', e => {
     if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) window.addTask();
   });
+
+  function syncDoneVisibility() {
+    const listDone = document.getElementById('list-done');
+    const toggleBtn = document.getElementById('btn-toggle-done');
+    listDone.style.display = showDone ? 'block' : 'none';
+    toggleBtn.textContent = showDone ? 'Ocultar completadas' : 'Ver completadas';
+  }
+
+  document.getElementById('btn-toggle-done').addEventListener('click', () => {
+    showDone = !showDone;
+    syncDoneVisibility();
+  });
+
+  syncDoneVisibility();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(() => {});
